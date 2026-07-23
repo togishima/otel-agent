@@ -1,0 +1,13 @@
+{
+  "name": "otel-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code の OpenTelemetry テレメトリをローカル受信し、localhost ダッシュボードで可視化する PoC",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node src/server.js"
+  }
+}

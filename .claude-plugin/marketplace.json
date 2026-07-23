@@ -1,0 +1,14 @@
+{
+  "name": "otel-agent-marketplace",
+  "owner": {
+    "name": "Takashi Ogishima"
+  },
+  "description": "Claude Code 利用状況モニタリング用の社内配布プラグイン",
+  "plugins": [
+    {
+      "name": "otel-agent",
+      "source": "./",
+      "description": "Claude Code の利用状況テレメトリをローカル収集し、ゲートウェイ到達時に転送するエージェント"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Usage Dashboard (PoC)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Claude Code Usage Dashboard <span class="badge">PoC</span></h1>
+    <p class="sub">ローカルOTLPレシーバーが受信したテレメトリをリアルタイム集計（4秒ごとに自動更新）</p>
+  </header>
+
+  <section class="cards" id="cards"></section>
+
+  <section class="panel">
+    <h2>トークン内訳（累積）</h2>
+    <div id="token-bar" class="stacked-bar"></div>
+    <div id="token-legend" class="legend"></div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>ツール呼び出し回数</h2>
+      <table id="tool-table">
+        <thead><tr><th>ツール</th><th>成功</th><th>失敗</th><th>合計</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>モデル別トークン使用量</h2>
+      <table id="model-table">
+        <thead><tr><th>モデル</th><th>種別</th><th>トークン数</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>直近イベント</h2>
+    <table id="events-table">
+      <thead><tr><th>時刻</th><th>イベント</th><th>属性</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>
