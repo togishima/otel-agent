@@ -5,6 +5,7 @@ import { initDb } from './db.js';
 import { ingestMetricsPayload, ingestLogsPayload } from './otlp-parse.js';
 import { getSummary, getToolBreakdown, getModelBreakdown, getRecentEvents, getTimeseries } from './queries.js';
 import { enqueue, startForwarder, isForwardingEnabled } from './forwarder.js';
+import { startMaintenance } from './maintenance.js';
 import { IS_SEA, packageRoot, readSeaAsset } from './paths.js';
 
 const PUBLIC_DIR = path.join(packageRoot(), 'public');
@@ -122,4 +123,5 @@ server.listen(PORT, () => {
   console.log(`  OTLP logs endpoint:    POST http://localhost:${PORT}/v1/logs`);
   console.log(`  Dashboard:             http://localhost:${PORT}/`);
   startForwarder(db);
+  startMaintenance(db);
 });

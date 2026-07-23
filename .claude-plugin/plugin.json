@@ -1,7 +1,7 @@
 {
   "name": "otel-agent",
   "displayName": "Otel Usage Agent",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Claude Code の利用状況テレメトリをローカル収集し、ゲートウェイ到達時に転送するエージェント（VPN切断時もローカル収集を継続）",
   "author": {
     "name": "Takashi Ogishima"
