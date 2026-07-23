@@ -21,8 +21,9 @@ export function getSummary(db) {
     .prepare(`SELECT COALESCE(SUM(value), 0) as total FROM metric_points WHERE metric_name = 'claude_code.session.count'`)
     .get().total;
 
+  // 実際のClaude Codeは 'tool_result'（プレフィックスなし）で送ってくる
   const toolCalls = db
-    .prepare(`SELECT COUNT(*) as total FROM log_records WHERE event_name = 'claude_code.tool_result'`)
+    .prepare(`SELECT COUNT(*) as total FROM log_records WHERE event_name IN ('claude_code.tool_result', 'tool_result')`)
     .get().total;
 
   const lastEventAt = db
@@ -43,11 +44,11 @@ export function getToolBreakdown(db) {
     .prepare(
       `SELECT
          json_extract(attributes_json, '$.tool_name') as tool_name,
-         SUM(CASE WHEN json_extract(attributes_json, '$.success') = 1 THEN 1 ELSE 0 END) as success_count,
-         SUM(CASE WHEN json_extract(attributes_json, '$.success') = 0 THEN 1 ELSE 0 END) as fail_count,
+         SUM(CASE WHEN json_extract(attributes_json, '$.success') IN ('true', 1) THEN 1 ELSE 0 END) as success_count,
+         SUM(CASE WHEN json_extract(attributes_json, '$.success') IN ('false', 0) THEN 1 ELSE 0 END) as fail_count,
          COUNT(*) as total
        FROM log_records
-       WHERE event_name = 'claude_code.tool_result'
+       WHERE event_name IN ('claude_code.tool_result', 'tool_result')
        GROUP BY tool_name
        ORDER BY total DESC`
     )
@@ -67,6 +68,35 @@ export function getModelBreakdown(db) {
        ORDER BY model, type`
     )
     .all();
+}
+
+// token.usage はdelta値で届くので、時間バケットごとの SUM がその期間の使用量になる。
+const TIMESERIES_BUCKETS = {
+  1: 2 * 60_000, // 1時間表示: 2分バケット
+  6: 10 * 60_000,
+  24: 30 * 60_000,
+  168: 3 * 60 * 60_000, // 7日表示: 3時間バケット
+};
+
+export function getTimeseries(db, hours) {
+  const h = TIMESERIES_BUCKETS[hours] ? hours : 24;
+  const bucketMs = TIMESERIES_BUCKETS[h];
+  const since = Date.now() - h * 60 * 60_000;
+  // node:sqlite は数値をREALでバインドし整数除算にならないため、
+  // ホワイトリスト由来の bucketMs は整数リテラルとして埋め込む
+  const rows = db
+    .prepare(
+      `SELECT
+         (received_at / ${bucketMs}) * ${bucketMs} AS bucket,
+         json_extract(attributes_json, '$.type') AS type,
+         SUM(value) AS total
+       FROM metric_points
+       WHERE metric_name = 'claude_code.token.usage' AND received_at >= ?
+       GROUP BY bucket, type
+       ORDER BY bucket`
+    )
+    .all(since);
+  return { hours: h, bucketMs, since, rows };
 }
 
 export function getRecentEvents(db) {

@@ -1,10 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { packageRoot } from './paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.OTEL_AGENT_DB_PATH || path.join(__dirname, '..', 'otel-agent.db');
+const DB_PATH = process.env.OTEL_AGENT_DB_PATH || path.join(packageRoot(), 'otel-agent.db');
 
 export function initDb() {
   mkdirSync(path.dirname(DB_PATH), { recursive: true });

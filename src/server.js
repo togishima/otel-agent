@@ -1,14 +1,13 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { initDb } from './db.js';
 import { ingestMetricsPayload, ingestLogsPayload } from './otlp-parse.js';
-import { getSummary, getToolBreakdown, getModelBreakdown, getRecentEvents } from './queries.js';
+import { getSummary, getToolBreakdown, getModelBreakdown, getRecentEvents, getTimeseries } from './queries.js';
 import { enqueue, startForwarder, isForwardingEnabled } from './forwarder.js';
+import { IS_SEA, packageRoot, readSeaAsset } from './paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const PUBLIC_DIR = path.join(packageRoot(), 'public');
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4318;
 
 const db = initDb();
@@ -28,11 +27,19 @@ function readBody(req) {
   });
 }
 
-async function serveStatic(res, filePath) {
+// rel は先頭スラッシュなしの相対パス（例: 'index.html'）。
+// SEAバイナリでは埋め込みアセットから、通常実行では public/ から返す。
+async function serveStatic(res, rel) {
   try {
-    const data = await readFile(filePath);
-    const ext = path.extname(filePath);
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    let data;
+    if (IS_SEA) {
+      data = readSeaAsset(rel);
+    } else {
+      const filePath = path.join(PUBLIC_DIR, rel);
+      if (!filePath.startsWith(PUBLIC_DIR)) throw new Error('forbidden');
+      data = await readFile(filePath);
+    }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(rel)] || 'application/octet-stream' });
     res.end(data);
   } catch {
     res.writeHead(404);
@@ -89,15 +96,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/timeseries') {
+      sendJson(res, getTimeseries(db, Number(url.searchParams.get('hours'))));
+      return;
+    }
+
     if (req.method === 'GET') {
-      const rel = url.pathname === '/' ? '/index.html' : url.pathname;
-      const filePath = path.join(PUBLIC_DIR, rel);
-      if (!filePath.startsWith(PUBLIC_DIR)) {
-        res.writeHead(403);
-        res.end();
-        return;
-      }
-      await serveStatic(res, filePath);
+      const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+      await serveStatic(res, rel);
       return;
     }
 

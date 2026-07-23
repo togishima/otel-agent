@@ -53,6 +53,94 @@ function renderTokenBar(summary) {
     .join('');
 }
 
+let tsHours = 24;
+
+function niceCeil(n) {
+  if (n <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(n)));
+  for (const m of [1, 2, 5, 10]) {
+    if (m * p >= n) return m * p;
+  }
+  return 10 * p;
+}
+
+function fmtBucketTime(t, hours) {
+  const d = new Date(t);
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return hours >= 168 ? `${d.getMonth() + 1}/${d.getDate()} ${hm}` : hm;
+}
+
+function renderTimeseries(ts) {
+  const el = document.getElementById('ts-chart');
+  const parts = ['input', 'output', 'cacheRead', 'cacheCreation'];
+
+  const byBucket = new Map();
+  for (const r of ts.rows) {
+    const b = byBucket.get(r.bucket) || { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+    if (parts.includes(r.type)) b[r.type] += r.total || 0;
+    byBucket.set(r.bucket, b);
+  }
+
+  const start = Math.floor(ts.since / ts.bucketMs) * ts.bucketMs + ts.bucketMs;
+  const end = Math.floor(Date.now() / ts.bucketMs) * ts.bucketMs;
+  const buckets = [];
+  for (let t = start; t <= end; t += ts.bucketMs) buckets.push(t);
+
+  const stackTotal = (t) => {
+    const b = byBucket.get(t);
+    return b ? parts.reduce((s, k) => s + b[k], 0) : 0;
+  };
+  if (!buckets.length || !buckets.some((t) => stackTotal(t) > 0)) {
+    el.innerHTML = '<div class="empty">この期間のデータはありません。</div>';
+    return;
+  }
+
+  const W = 800, H = 220, L = 70, R = 10, T = 10, B = 24;
+  const plotW = W - L - R;
+  const plotH = H - T - B;
+  const yMax = niceCeil(Math.max(...buckets.map(stackTotal)));
+  const bw = plotW / buckets.length;
+
+  const gridLines = [0, 0.5, 1]
+    .map((f) => {
+      const y = T + plotH * (1 - f);
+      return `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}"></line>
+        <text x="${L - 8}" y="${y + 4}" text-anchor="end">${fmtNum(yMax * f)}</text>`;
+    })
+    .join('');
+
+  const bars = buckets
+    .map((t, i) => {
+      const b = byBucket.get(t);
+      if (!b) return '';
+      let y = T + plotH;
+      const x = (L + i * bw + bw * 0.1).toFixed(1);
+      const w = Math.max(bw * 0.8, 1).toFixed(1);
+      const rects = parts
+        .map((k) => {
+          const h = (b[k] / yMax) * plotH;
+          if (h <= 0) return '';
+          y -= h;
+          return `<rect x="${x}" y="${y.toFixed(1)}" width="${w}" height="${h.toFixed(1)}" fill="${COLORS[k]}"></rect>`;
+        })
+        .join('');
+      const title = `${fmtBucketTime(t, ts.hours)}\n` + parts.map((k) => `${LABELS[k]}: ${fmtNum(b[k])}`).join('\n');
+      return `<g><title>${title}</title>${rects}</g>`;
+    })
+    .join('');
+
+  const labelStep = Math.max(1, Math.ceil(buckets.length / 5));
+  const xLabels = buckets
+    .map((t, i) =>
+      i % labelStep === 0
+        ? `<text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${fmtBucketTime(t, ts.hours)}</text>`
+        : ''
+    )
+    .join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${gridLines}${bars}${xLabels}</svg>`;
+}
+
 function renderToolTable(rows) {
   const tbody = document.querySelector('#tool-table tbody');
   if (!rows.length) {
@@ -96,14 +184,16 @@ function renderEvents(rows) {
 
 async function refresh() {
   try {
-    const [summary, tools, models, events] = await Promise.all([
+    const [summary, tools, models, events, timeseries] = await Promise.all([
       fetchJson('/api/summary'),
       fetchJson('/api/tools'),
       fetchJson('/api/models'),
       fetchJson('/api/events'),
+      fetchJson(`/api/timeseries?hours=${tsHours}`),
     ]);
     renderCards(summary);
     renderTokenBar(summary);
+    renderTimeseries(timeseries);
     renderToolTable(tools);
     renderModelTable(models);
     renderEvents(events);
@@ -111,6 +201,14 @@ async function refresh() {
     console.error('refresh failed', e);
   }
 }
+
+document.querySelectorAll('#ts-controls button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    tsHours = Number(btn.dataset.hours);
+    document.querySelectorAll('#ts-controls button').forEach((b) => b.classList.toggle('active', b === btn));
+    refresh();
+  });
+});
 
 refresh();
 setInterval(refresh, 4000);

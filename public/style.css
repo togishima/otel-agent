@@ -58,6 +58,21 @@ header .sub { margin: 0 0 1.5rem; color: var(--muted); font-size: 0.85rem; }
 .legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.75rem; font-size: 0.8rem; color: var(--muted); }
 .legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.35rem; }
 
+.ts-controls { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+.ts-controls button {
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.ts-controls button.active { color: var(--fg); border-color: var(--accent); }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-size: 11px; }
+.chart line { stroke: var(--border); }
+
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
 
