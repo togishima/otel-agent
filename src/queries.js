@@ -105,6 +105,39 @@ export function getTimeseries(db, hours, by) {
   return { hours: h, by: g, bucketMs, since, rows };
 }
 
+// skill.name はスキル起動後のAPIリクエスト・トークン計測に自動付与される
+// （フラグ不要。サードパーティプラグインのスキル名は 'third-party' に置換済みで届く）。
+export function getSkillBreakdown(db) {
+  const usage = db
+    .prepare(
+      `SELECT
+         json_extract(attributes_json, '$."skill.name"') AS skill,
+         SUM(CASE WHEN metric_name = 'claude_code.token.usage' THEN value ELSE 0 END) AS tokens,
+         SUM(CASE WHEN metric_name = 'claude_code.cost.usage' THEN value ELSE 0 END) AS cost
+       FROM metric_points
+       WHERE json_extract(attributes_json, '$."skill.name"') IS NOT NULL
+       GROUP BY skill`
+    )
+    .all();
+  const requests = db
+    .prepare(
+      `SELECT
+         json_extract(attributes_json, '$."skill.name"') AS skill,
+         COUNT(*) AS requests
+       FROM log_records
+       WHERE event_name = 'api_request' AND json_extract(attributes_json, '$."skill.name"') IS NOT NULL
+       GROUP BY skill`
+    )
+    .all();
+  const bySkill = new Map(usage.map((r) => [r.skill, { skill: r.skill, tokens: r.tokens, cost: r.cost, requests: 0 }]));
+  for (const r of requests) {
+    const s = bySkill.get(r.skill) || { skill: r.skill, tokens: 0, cost: 0, requests: 0 };
+    s.requests = r.requests;
+    bySkill.set(r.skill, s);
+  }
+  return [...bySkill.values()].sort((a, b) => b.tokens - a.tokens);
+}
+
 export function getRecentEvents(db) {
   return db
     .prepare(

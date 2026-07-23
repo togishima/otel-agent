@@ -81,3 +81,4 @@ th { color: var(--muted); font-weight: 500; }
   white-space: nowrap;
 }
 .empty { color: var(--muted); text-align: center; padding: 1rem; }
+.note { margin: -0.5rem 0 0.75rem; color: var(--muted); font-size: 0.75rem; }

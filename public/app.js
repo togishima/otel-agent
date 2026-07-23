@@ -202,6 +202,17 @@ function renderModelTable(rows) {
     .join('');
 }
 
+function renderSkillTable(rows) {
+  const tbody = document.querySelector('#skill-table tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">データなし（スキルが呼び出されるとここに表示されます）</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows
+    .map((r) => `<tr><td>${escapeHtml(r.skill)}</td><td>${fmtNum(r.requests)}</td><td>${fmtNum(r.tokens)}</td><td>${fmtUsd(r.cost)}</td></tr>`)
+    .join('');
+}
+
 function renderEvents(rows) {
   const tbody = document.querySelector('#events-table tbody');
   if (!rows.length) {
@@ -223,10 +234,11 @@ function renderEvents(rows) {
 
 async function refresh() {
   try {
-    const [summary, tools, models, events, timeseries] = await Promise.all([
+    const [summary, tools, models, skills, events, timeseries] = await Promise.all([
       fetchJson('/api/summary'),
       fetchJson('/api/tools'),
       fetchJson('/api/models'),
+      fetchJson('/api/skills'),
       fetchJson('/api/events'),
       fetchJson(`/api/timeseries?hours=${tsHours}&by=${tsBy}`),
     ]);
@@ -235,6 +247,7 @@ async function refresh() {
     renderTimeseries(timeseries);
     renderToolTable(tools);
     renderModelTable(models);
+    renderSkillTable(skills);
     renderEvents(events);
   } catch (e) {
     console.error('refresh failed', e);

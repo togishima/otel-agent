@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { initDb } from './db.js';
 import { ingestMetricsPayload, ingestLogsPayload } from './otlp-parse.js';
-import { getSummary, getToolBreakdown, getModelBreakdown, getRecentEvents, getTimeseries } from './queries.js';
+import { getSummary, getToolBreakdown, getModelBreakdown, getSkillBreakdown, getRecentEvents, getTimeseries } from './queries.js';
 import { enqueue, startForwarder, isForwardingEnabled } from './forwarder.js';
 import { startMaintenance } from './maintenance.js';
 import { IS_SEA, packageRoot, readSeaAsset } from './paths.js';
@@ -89,6 +89,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/models') {
       sendJson(res, getModelBreakdown(db));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/skills') {
+      sendJson(res, getSkillBreakdown(db));
       return;
     }
 
