@@ -26,7 +26,7 @@ export OTEL_METRICS_EXPORTER=otlp
 export OTEL_LOGS_EXPORTER=otlp
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-export OTEL_METRIC_EXPORT_INTERVAL=5000   # PoC用に短縮（デフォルト60秒）
+export OTEL_METRIC_EXPORT_INTERVAL=5000   # 動作確認用に短縮（デフォルト60秒）
 export OTEL_LOGS_EXPORT_INTERVAL=5000
 
 claude
