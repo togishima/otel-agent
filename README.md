@@ -1,9 +1,9 @@
-# otel-agent (PoC)
+# otel-agent
 
 Claude Code の公式 OpenTelemetry テレメトリをローカルで受信し、
-localhost のダッシュボードでツール呼び出し回数・トークンIO比率・モデル比率を
-可視化する PoC です。外部npm依存はゼロ（Node.js組み込みの `node:http` /
-`node:sqlite` のみ）。
+localhost のダッシュボードでツール呼び出し回数・トークンIO比率・モデル比率・
+スキル別使用状況を可視化するエージェントです。外部npm依存はゼロ
+（Node.js組み込みの `node:http` / `node:sqlite` のみ）。
 
 Claude Code の OTel エクスポートは API従量課金・サブスクリプション(Pro/Team/
 Enterprise) いずれの認証方式でも動作するCLI自体の機能のため、契約形態を変えても
