@@ -98,7 +98,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/timeseries') {
-      sendJson(res, getTimeseries(db, Number(url.searchParams.get('hours'))));
+      sendJson(res, getTimeseries(db, Number(url.searchParams.get('hours')), url.searchParams.get('by')));
       return;
     }
 

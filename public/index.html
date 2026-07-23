@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claude Code Usage Dashboard (PoC)</title>
+<title>Claude Code Usage Dashboard</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header>
-    <h1>Claude Code Usage Dashboard <span class="badge">PoC</span></h1>
+    <h1>Claude Code Usage Dashboard</h1>
     <p class="sub">ローカルOTLPレシーバーが受信したテレメトリをリアルタイム集計（4秒ごとに自動更新）</p>
   </header>
 
@@ -22,13 +22,20 @@
 
   <section class="panel">
     <h2>トークン使用量の推移</h2>
-    <div class="ts-controls" id="ts-controls">
-      <button data-hours="24" class="active">24時間</button>
-      <button data-hours="168">7日</button>
-      <button data-hours="720">1ヶ月</button>
-      <button data-hours="2160">3ヶ月</button>
+    <div class="ts-controls">
+      <span class="ts-group" id="ts-hours">
+        <button data-hours="24" class="active">24時間</button>
+        <button data-hours="168">7日</button>
+        <button data-hours="720">1ヶ月</button>
+        <button data-hours="2160">3ヶ月</button>
+      </span>
+      <span class="ts-group" id="ts-by">
+        <button data-by="type" class="active">IO種別</button>
+        <button data-by="model">モデル</button>
+      </span>
     </div>
     <div id="ts-chart" class="chart"></div>
+    <div id="ts-legend" class="legend"></div>
   </section>
 
   <section class="grid2">
@@ -42,7 +49,7 @@
     <div class="panel">
       <h2>モデル別トークン使用量</h2>
       <table id="model-table">
-        <thead><tr><th>モデル</th><th>種別</th><th>トークン数</th></tr></thead>
+        <thead><tr><th>モデル</th><th>Input</th><th>Output</th><th>Cache Read</th><th>Cache Creation</th><th>合計</th><th>比率</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

@@ -1,5 +1,15 @@
 const COLORS = { input: '#4C9AFF', output: '#36B37E', cacheRead: '#FFAB00', cacheCreation: '#FF5630' };
 const LABELS = { input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheCreation: 'Cache Creation' };
+const TYPE_ORDER = ['input', 'output', 'cacheRead', 'cacheCreation'];
+
+const FAMILY_ORDER = ['opus', 'sonnet', 'haiku', 'fable', 'mythos', 'other'];
+const FAMILY_COLORS = { opus: '#6554C0', sonnet: '#4C9AFF', haiku: '#36B37E', fable: '#FF8B00', mythos: '#FF5630', other: '#8993A4' };
+
+// 'claude-fable-5[1m]' や 'claude-haiku-4-5-20251001' からファミリー名を抽出
+function familyOf(model) {
+  const m = String(model || '').toLowerCase().match(/opus|sonnet|haiku|fable|mythos/);
+  return m ? m[0] : 'other';
+}
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -54,6 +64,7 @@ function renderTokenBar(summary) {
 }
 
 let tsHours = 24;
+let tsBy = 'type';
 
 function niceCeil(n) {
   if (n <= 0) return 1;
@@ -73,14 +84,21 @@ function fmtBucketTime(t, hours) {
 
 function renderTimeseries(ts) {
   const el = document.getElementById('ts-chart');
-  const parts = ['input', 'output', 'cacheRead', 'cacheCreation'];
+  const byModel = ts.by === 'model';
 
   const byBucket = new Map();
+  const present = new Set();
   for (const r of ts.rows) {
-    const b = byBucket.get(r.bucket) || { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-    if (parts.includes(r.type)) b[r.type] += r.total || 0;
+    const key = byModel ? familyOf(r.series) : r.series;
+    if (!byModel && !TYPE_ORDER.includes(key)) continue;
+    present.add(key);
+    const b = byBucket.get(r.bucket) || {};
+    b[key] = (b[key] || 0) + (r.total || 0);
     byBucket.set(r.bucket, b);
   }
+  const parts = (byModel ? FAMILY_ORDER : TYPE_ORDER).filter((k) => present.has(k));
+  const colorOf = (k) => (byModel ? FAMILY_COLORS[k] : COLORS[k]);
+  const labelOf = (k) => (byModel ? k : LABELS[k]);
 
   const start = Math.floor(ts.since / ts.bucketMs) * ts.bucketMs + ts.bucketMs;
   const end = Math.floor(Date.now() / ts.bucketMs) * ts.bucketMs;
@@ -89,12 +107,17 @@ function renderTimeseries(ts) {
 
   const stackTotal = (t) => {
     const b = byBucket.get(t);
-    return b ? parts.reduce((s, k) => s + b[k], 0) : 0;
+    return b ? parts.reduce((s, k) => s + (b[k] || 0), 0) : 0;
   };
+  const legend = document.getElementById('ts-legend');
   if (!buckets.length || !buckets.some((t) => stackTotal(t) > 0)) {
     el.innerHTML = '<div class="empty">この期間のデータはありません。</div>';
+    legend.innerHTML = '';
     return;
   }
+  legend.innerHTML = parts
+    .map((k) => `<span class="legend-item"><span class="dot" style="background:${colorOf(k)}"></span>${labelOf(k)}</span>`)
+    .join('');
 
   const W = 800, H = 220, L = 70, R = 10, T = 10, B = 24;
   const plotW = W - L - R;
@@ -119,13 +142,13 @@ function renderTimeseries(ts) {
       const w = Math.max(bw * 0.8, 1).toFixed(1);
       const rects = parts
         .map((k) => {
-          const h = (b[k] / yMax) * plotH;
+          const h = ((b[k] || 0) / yMax) * plotH;
           if (h <= 0) return '';
           y -= h;
-          return `<rect x="${x}" y="${y.toFixed(1)}" width="${w}" height="${h.toFixed(1)}" fill="${COLORS[k]}"></rect>`;
+          return `<rect x="${x}" y="${y.toFixed(1)}" width="${w}" height="${h.toFixed(1)}" fill="${colorOf(k)}"></rect>`;
         })
         .join('');
-      const title = `${fmtBucketTime(t, ts.hours)}\n` + parts.map((k) => `${LABELS[k]}: ${fmtNum(b[k])}`).join('\n');
+      const title = `${fmtBucketTime(t, ts.hours)}\n` + parts.map((k) => `${labelOf(k)}: ${fmtNum(b[k] || 0)}`).join('\n');
       return `<g><title>${title}</title>${rects}</g>`;
     })
     .join('');
@@ -156,11 +179,26 @@ function renderToolTable(rows) {
 function renderModelTable(rows) {
   const tbody = document.querySelector('#model-table tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="3" class="empty">データなし</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">データなし</td></tr>';
     return;
   }
-  tbody.innerHTML = rows
-    .map((r) => `<tr><td>${r.model || '(unknown)'}</td><td>${LABELS[r.type] || r.type}</td><td>${fmtNum(r.total)}</td></tr>`)
+  // (model, type, total) の行をモデルごとに1行へピボット
+  const byModel = new Map();
+  for (const r of rows) {
+    const model = r.model || '(unknown)';
+    const m = byModel.get(model) || { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, total: 0 };
+    if (TYPE_ORDER.includes(r.type)) m[r.type] += r.total || 0;
+    m.total += r.total || 0;
+    byModel.set(model, m);
+  }
+  const grand = [...byModel.values()].reduce((s, m) => s + m.total, 0);
+  tbody.innerHTML = [...byModel.entries()]
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([model, m]) => {
+      const pct = grand > 0 ? ((m.total / grand) * 100).toFixed(1) : '0.0';
+      const cells = TYPE_ORDER.map((k) => `<td>${fmtNum(m[k])}</td>`).join('');
+      return `<tr><td>${model}</td>${cells}<td>${fmtNum(m.total)}</td><td>${pct}%</td></tr>`;
+    })
     .join('');
 }
 
@@ -190,7 +228,7 @@ async function refresh() {
       fetchJson('/api/tools'),
       fetchJson('/api/models'),
       fetchJson('/api/events'),
-      fetchJson(`/api/timeseries?hours=${tsHours}`),
+      fetchJson(`/api/timeseries?hours=${tsHours}&by=${tsBy}`),
     ]);
     renderCards(summary);
     renderTokenBar(summary);
@@ -203,10 +241,18 @@ async function refresh() {
   }
 }
 
-document.querySelectorAll('#ts-controls button').forEach((btn) => {
+document.querySelectorAll('#ts-hours button').forEach((btn) => {
   btn.addEventListener('click', () => {
     tsHours = Number(btn.dataset.hours);
-    document.querySelectorAll('#ts-controls button').forEach((b) => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('#ts-hours button').forEach((b) => b.classList.toggle('active', b === btn));
+    refresh();
+  });
+});
+
+document.querySelectorAll('#ts-by button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    tsBy = btn.dataset.by;
+    document.querySelectorAll('#ts-by button').forEach((b) => b.classList.toggle('active', b === btn));
     refresh();
   });
 });

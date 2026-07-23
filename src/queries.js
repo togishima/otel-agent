@@ -78,8 +78,14 @@ const TIMESERIES_BUCKETS = {
   2160: 24 * 60 * 60_000, // 3ヶ月表示: 1日バケット
 };
 
-export function getTimeseries(db, hours) {
+const TIMESERIES_GROUPS = {
+  type: '$.type', // input/output/cacheRead/cacheCreation
+  model: '$.model', // モデル名（UI側でファミリーに集約）
+};
+
+export function getTimeseries(db, hours, by) {
   const h = TIMESERIES_BUCKETS[hours] ? hours : 24;
+  const g = TIMESERIES_GROUPS[by] ? by : 'type';
   const bucketMs = TIMESERIES_BUCKETS[h];
   const since = Date.now() - h * 60 * 60_000;
   // node:sqlite は数値をREALでバインドし整数除算にならないため、
@@ -88,15 +94,15 @@ export function getTimeseries(db, hours) {
     .prepare(
       `SELECT
          (received_at / ${bucketMs}) * ${bucketMs} AS bucket,
-         json_extract(attributes_json, '$.type') AS type,
+         json_extract(attributes_json, '${TIMESERIES_GROUPS[g]}') AS series,
          SUM(value) AS total
        FROM metric_points
        WHERE metric_name = 'claude_code.token.usage' AND received_at >= ?
-       GROUP BY bucket, type
+       GROUP BY bucket, series
        ORDER BY bucket`
     )
     .all(since);
-  return { hours: h, bucketMs, since, rows };
+  return { hours: h, by: g, bucketMs, since, rows };
 }
 
 export function getRecentEvents(db) {
@@ -105,7 +111,7 @@ export function getRecentEvents(db) {
       `SELECT id, received_at, event_name, attributes_json
        FROM log_records
        ORDER BY id DESC
-       LIMIT 50`
+       LIMIT 15`
     )
     .all();
 }
