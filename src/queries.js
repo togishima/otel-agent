@@ -72,10 +72,10 @@ export function getModelBreakdown(db) {
 
 // token.usage はdelta値で届くので、時間バケットごとの SUM がその期間の使用量になる。
 const TIMESERIES_BUCKETS = {
-  1: 2 * 60_000, // 1時間表示: 2分バケット
-  6: 10 * 60_000,
-  24: 30 * 60_000,
+  24: 30 * 60_000, // 24時間表示: 30分バケット
   168: 3 * 60 * 60_000, // 7日表示: 3時間バケット
+  720: 12 * 60 * 60_000, // 1ヶ月表示: 12時間バケット
+  2160: 24 * 60 * 60_000, // 3ヶ月表示: 1日バケット
 };
 
 export function getTimeseries(db, hours) {

@@ -66,6 +66,7 @@ function niceCeil(n) {
 
 function fmtBucketTime(t, hours) {
   const d = new Date(t);
+  if (hours >= 720) return `${d.getMonth() + 1}/${d.getDate()}`;
   const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   return hours >= 168 ? `${d.getMonth() + 1}/${d.getDate()} ${hm}` : hm;
 }
