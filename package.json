@@ -1,6 +1,6 @@
 {
   "name": "otel-agent",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Claude Code の OpenTelemetry テレメトリをローカル受信し、localhost ダッシュボードで可視化するエージェント",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "build:sea": "scripts/build-sea.sh"
+    "build:sea": "scripts/build-sea.sh",
+    "test": "node --test test/*.test.js"
   }
 }

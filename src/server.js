@@ -4,6 +4,7 @@ import path from 'node:path';
 import { initDb } from './db.js';
 import { ingestMetricsPayload, ingestLogsPayload } from './otlp-parse.js';
 import { getSummary, getToolBreakdown, getModelBreakdown, getSkillBreakdown, getRecentEvents, getTimeseries } from './queries.js';
+import { getDiagnosis } from './diagnose.js';
 import { enqueue, startForwarder, isForwardingEnabled } from './forwarder.js';
 import { startMaintenance } from './maintenance.js';
 import { IS_SEA, packageRoot, readSeaAsset } from './paths.js';
@@ -104,6 +105,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/timeseries') {
       sendJson(res, getTimeseries(db, Number(url.searchParams.get('hours')), url.searchParams.get('by')));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/diagnosis') {
+      const top = Number(url.searchParams.get('top')) || undefined;
+      sendJson(res, getDiagnosis(db, { days: Number(url.searchParams.get('days')), top }));
       return;
     }
 

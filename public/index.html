@@ -14,6 +14,23 @@
 
   <section class="cards" id="cards"></section>
 
+  <section class="panel" id="diagnosis">
+    <h2>8原則セルフチェック</h2>
+    <p class="note">「AIエージェントのトークン消費を最小化する8つの原則」に沿って、守れていない兆候をセッション単位で判定します。このPC内だけで集計し、プロンプト本文は使いません。詳しい解説は Claude Code で /token-checkup を実行してください。</p>
+    <div class="ts-controls">
+      <span class="ts-group" id="dx-days">
+        <button data-days="7" class="active">7日</button>
+        <button data-days="30">30日</button>
+        <button data-days="90">90日</button>
+      </span>
+    </div>
+    <div class="cards" id="dx-cards"></div>
+    <table id="dx-table">
+      <thead><tr><th>原則</th><th>兆候</th><th>該当セッション</th><th>該当コスト</th><th>次に試すこと</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
   <section class="panel">
     <h2>トークン内訳（累積）</h2>
     <div id="token-bar" class="stacked-bar"></div>

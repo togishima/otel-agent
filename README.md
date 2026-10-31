@@ -36,7 +36,13 @@ claude
 
 ### 3. ブラウザで確認
 
-http://localhost:4318 を開く。4秒ごとに自動更新。
+http://localhost:4318 を開く。4秒ごとに自動更新（8原則セルフチェックは1分ごと）。
+
+### テスト
+
+```bash
+npm test
+```
 
 ## 収集しているデータ
 
@@ -56,6 +62,41 @@ http://localhost:4318 を開く。4秒ごとに自動更新。
 デフォルトではプロンプト本文やツール引数の詳細はAnthropic側で redact されます。
 必要な場合は `OTEL_LOG_USER_PROMPTS=1` / `OTEL_LOG_TOOL_DETAILS=1` を追加してください
 （機密情報を含む可能性があるため、本番でのSnowflake連携時は取り扱いに注意）。
+
+## 8原則セルフチェック
+
+[「AIエージェントのトークン消費を最小化する8つの原則」](https://speakerdeck.com/kinopeee/draft-ai-ejento-no-tokun-shouhi-o-saishouka-suru-8-tsu-no-gensoku)に沿って、
+トークンの割に成果が残っていない原因をセッション単位で判定します。ダッシュボードの「8原則セルフチェック」と、
+プラグインに同梱のスキル `/token-checkup`（Claude Code が結果を読んで次に試すことを説明する）から見られます。
+
+- 判定はこのPCのDBだけで行い、プロンプト本文・ファイルパスは使いません（`OTEL_LOG_USER_PROMPTS` 等は不要）
+- 主指標は「コミット/PR 1件あたりのコスト」と「成果が残らなかったコストの割合」
+- 兆候は該当セッションのコスト合計が大きい順に並びます
+- API: `GET /api/diagnosis?days=7&top=3`（`days` は 1 / 7 / 30 / 90）
+
+セッションの成果は次の順で分類します: `shipped`（コミットかPRあり）/ `changed`（変更行のみ）/
+`no_change`（編集を試みたが残らず）/ `explore`（編集なし。調査・質問なので失敗扱いしない）。
+
+| 原則 | 兆候 | 使うデータ | 既定の閾値 |
+|---|---|---|---|
+| 1 入力を減らす | 最初の編集までの探索（Read/Grep/Glob等）が多い | `tool_result` の順序 | 15回 |
+| 1 | 巨大なツール結果を読み込んでいる | `tool_result_size_bytes` | 40KB以上が2回 |
+| 1 | 会話開始時の固定コンテキストが重い（MCP・CLAUDE.md） | 最初の `api_request` の入力合計 | 4万トークン |
+| 2 コンテキストの寿命 | 1つの会話を長く引っ張っている | `api_request` の入力合計の最大 | 15万トークン |
+| 2 | 上限まで使い切って自動圧縮されている | `query_source=compact`（直前が `/compact` なら除外） | 1回 |
+| 3 往復を減らす | 同じツールを1件ずつ繰り返している | `tool_result` の連続 | 10回 |
+| 3 | 短い追い発言での往復が多い | `user_prompt.prompt_length` | 20文字未満が3割 |
+| 4 やり直しを早く止める | 同じツールの連続失敗 | `tool_result.success` | 3回 |
+| 4 | ツール実行の却下が多い | `tool_decision.decision=reject` | 3回 |
+| 5 出力を減らす | 部分編集でなく全書き換え | Write と Edit の `tool_input_size_bytes` | Write 20KB以上かつ Edit の2倍超 |
+| 5 | 変更量に対して出力が多い | `output_tokens` / 変更行数 | 200トークン/行 |
+| 6 キャッシュを壊さない | ヒット率が低い | `cache_read_tokens` の割合 | 70%未満 |
+| 6 | 会話途中でキャッシュを作り直している | 2回目以降の `cache_creation_tokens` | 5万トークンが2回 |
+| 7 モデルの使い分け | 小さな作業に最上位モデル・高 effort | `model` / `effort` 別コスト | 変更30行未満でコストの8割 |
+| 8 計測してから最適化 | 使用量を確認した形跡がない | `user_prompt.command_name`（cost/usage/context/stats） | 期間内に0回 |
+
+閾値は仮置きです。社内の分布を見て `src/diagnose.js` の `THRESHOLDS` を調整してください。
+サブエージェント（`agent_id` あり）やタイトル生成などの補助リクエストは、探索回数や固定コンテキストの判定から除いています。
 
 ## データの保存先
 
