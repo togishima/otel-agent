@@ -232,6 +232,51 @@ function renderEvents(rows) {
     .join('');
 }
 
+let dxDays = 7;
+
+const OUTCOME_LABELS = { shipped: 'コミット/PRあり', changed: '変更のみ', no_change: '編集したが残らず', explore: '調査・質問' };
+
+function renderDiagnosis(dx) {
+  const s = dx.summary;
+  const pct = (v) => (v == null ? '-' : `${Math.round(v * 100)}%`);
+  const cards = [
+    { label: `セッション数（${dx.days}日）`, value: fmtNum(s.sessions) },
+    { label: '概算コスト', value: fmtUsd(s.totalCost) },
+    { label: 'コミット/PR 1件あたりのコスト', value: s.costPerShipped == null ? '-' : fmtUsd(s.costPerShipped) },
+    { label: '成果が残らなかったコストの割合', value: pct(s.noOutputCostShare) },
+    ...Object.entries(OUTCOME_LABELS).map(([k, label]) => ({ label, value: `${fmtNum(s.outcomes[k].sessions)} 件` })),
+  ];
+  document.getElementById('dx-cards').innerHTML = cards
+    .map((c) => `<div class="card"><div class="card-value">${c.value}</div><div class="card-label">${c.label}</div></div>`)
+    .join('');
+
+  const tbody = document.querySelector('#dx-table tbody');
+  if (!s.sessions) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">期間内のセッションがありません</td></tr>';
+    return;
+  }
+  if (!dx.findings.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">目立つ兆候はありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = dx.findings
+    .map(
+      (f) =>
+        `<tr><td>${f.principle}. ${escapeHtml(f.principleName)}</td><td>${escapeHtml(f.title)}</td>` +
+        `<td>${fmtNum(f.sessions)}（${pct(f.sessionShare)}）</td><td>${f.cost ? fmtUsd(f.cost) : '-'}</td><td>${escapeHtml(f.advice)}</td></tr>`
+    )
+    .join('');
+}
+
+// 診断は全イベントを走査するため、4秒ごとの更新とは分けて1分ごとにする
+async function refreshDiagnosis() {
+  try {
+    renderDiagnosis(await fetchJson(`/api/diagnosis?days=${dxDays}`));
+  } catch (e) {
+    console.error('diagnosis failed', e);
+  }
+}
+
 async function refresh() {
   try {
     const [summary, tools, models, skills, events, timeseries] = await Promise.all([
@@ -270,5 +315,15 @@ document.querySelectorAll('#ts-by button').forEach((btn) => {
   });
 });
 
+document.querySelectorAll('#dx-days button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    dxDays = Number(btn.dataset.days);
+    document.querySelectorAll('#dx-days button').forEach((b) => b.classList.toggle('active', b === btn));
+    refreshDiagnosis();
+  });
+});
+
 refresh();
 setInterval(refresh, 4000);
+refreshDiagnosis();
+setInterval(refreshDiagnosis, 60_000);
